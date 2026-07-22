@@ -124,6 +124,40 @@ func TestFindAllChangedFilesOfPR(t *testing.T) {
 	assert.Equal(t, 46, len(files))
 }
 
+func TestListIssuesHandlesIssueWithoutBody(t *testing.T) {
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposIssuesByOwnerByRepo,
+			[]github.Issue{
+				{
+					Number: github.Int(67),
+					Title:  github.String("issue without a body"),
+				},
+				{
+					Number:           github.Int(68),
+					Title:            github.String("pull request"),
+					Body:             github.String("pull request body"),
+					PullRequestLinks: &github.PullRequestLinks{},
+				},
+			},
+		),
+	)
+
+	svc := GithubService{
+		Client:   github.NewClient(mockedHTTPClient),
+		Owner:    "diggerhq",
+		RepoName: "digger",
+	}
+
+	issues, err := svc.ListIssues()
+
+	assert.NoError(t, err)
+	assert.Len(t, issues, 1)
+	assert.Equal(t, int64(67), issues[0].ID)
+	assert.Equal(t, "issue without a body", issues[0].Title)
+	assert.Empty(t, issues[0].Body)
+}
+
 func TestGetApprovalsPaginatesBeyondFirstPage(t *testing.T) {
 	// Regression test for PRs with >30 reviews: automated tools can post
 	// dozens of COMMENTED reviews before any human approves, pushing the
